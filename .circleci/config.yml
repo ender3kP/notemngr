@@ -3,18 +3,23 @@ version: 2.1
 jobs:
   build-and-test:
     docker:
-      - image: python:3.10
+      - image: circleci/python:3.10
     steps:
       - checkout
       - run:
           name: Install dependencies
           command: |
+            sudo apt-get update && sudo apt-get install -y xvfb
             python -m pip install --upgrade pip
             pip install -r requirements.txt
       - run:
-          name: Run tests
-          command: pytest
-
+          name: Start Xvfb
+          command: Xvfb :99 -screen 0 1024x768x16 &
+      - run:
+          name: Run tests with DISPLAY
+          command: |
+            export DISPLAY=:99
+            pytest
 workflows:
   version: 2
   build-and-test:

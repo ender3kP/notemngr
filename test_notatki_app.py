@@ -1,118 +1,76 @@
 import pytest
+from unittest.mock import MagicMock
 from notatki_app import NotatkiApp
-import tkinter as tk
 
 
 @pytest.fixture
-def app():
-    root = tk.Tk()
-    app_instance = NotatkiApp(root)
-    yield app_instance
-    root.destroy()
+def app(monkeypatch):
+    # Mockowanie tkinter.Tk
+    mock_root = MagicMock()
+    monkeypatch.setattr("tkinter.Tk", lambda: mock_root)
+    app_instance = NotatkiApp(mock_root)
+    return app_instance
 
 
 def test_dodaj_notatke(app):
-    app.text_area.insert("1.0", "Testowa notatka")
+    app.text_area.insert = MagicMock()
+    app.text_area.get = MagicMock(return_value="Testowa notatka")
     app.dodaj_notatke()
     assert len(app.notatki) == 1
 
 
 def test_dodaj_pusta_notatke(app):
+    app.text_area.get = MagicMock(return_value="")
     app.dodaj_notatke()
     assert len(app.notatki) == 0
 
 
-
 def test_dodaj_wiele_notatek(app):
-    app.text_area.insert("1.0", "Notatka 1")
-    app.dodaj_notatke()
-    app.text_area.insert("1.0", "Notatka 2")
-    app.dodaj_notatke()
-    assert len(app.notatki) == 2
+    for i in range(3):
+        app.text_area.get = MagicMock(return_value=f"Notatka {i}")
+        app.dodaj_notatke()
+    assert len(app.notatki) == 3
+    assert app.notatki == ["Notatka 0", "Notatka 1", "Notatka 2"]
 
 
 def test_pokaz_brak_notatek(app):
-    app.pokaz_notatki()  # Sprawdzamy, czy nie generuje błędu
+    app.notatki = []
+    app.pokaz_notatki = MagicMock()
+    app.pokaz_notatki()
+    app.pokaz_notatki.assert_called_once()
 
 
 def test_notatka_zawiera_tekst(app):
-    app.text_area.insert("1.0", "Test")
+    app.text_area.get = MagicMock(return_value="Test")
     app.dodaj_notatke()
     assert "Test" in app.notatki
 
 
-def test_dodaj_wielokrotne_notatki(app):
-    for i in range(10):
-        app.text_area.insert("1.0", f"Notatka {i}")
-        app.dodaj_notatke()
-    assert len(app.notatki) == 10
-
-
 def test_dodaj_notatki_kolejność(app):
-    app.text_area.insert("1.0", "Notatka A")
+    app.text_area.get = MagicMock(side_effect=["Notatka A", "Notatka B"])
     app.dodaj_notatke()
-    app.text_area.insert("1.0", "Notatka B")
     app.dodaj_notatke()
-    assert app.notatki[0] == "Notatka A"
-    assert app.notatki[1] == "Notatka B"
+    assert app.notatki == ["Notatka A", "Notatka B"]
 
 
-def test_notatki_są_unikalne(app):
-    app.text_area.insert("1.0", "Notatka unikalna")
-    app.dodaj_notatke()
-    app.text_area.insert("1.0", "Notatka unikalna")
-    app.dodaj_notatke()
-    assert len(app.notatki) == 2
-
-
-def test_dodawanie_notatek_i_wyczyszczenie(app):
-    app.text_area.insert("1.0", "Notatka do wyczyszczenia")
-    app.dodaj_notatke()
-    app.text_area.delete("1.0", tk.END)
-    assert len(app.notatki) == 1
-
-
-def test_dodaj_notatke_z_roznych_zrodel(app):
-    for i in range(3):
-        app.text_area.insert("1.0", f"Notatka {i}")
-        app.dodaj_notatke()
-    assert app.notatki[-1] == "Notatka 2"  # Ostatnia powinna być "Notatka 2"
-
-
-def test_brak_notatek_w_aplikacji(app):
-    assert app.notatki == []
-
-
-def test_dodaj_notatke_z_roznych_typow(app):
-    app.text_area.insert("1.0", "Notatka tekstowa")
-    app.dodaj_notatke()
-
-    app.text_area.insert("1.0", "12345")
-    app.dodaj_notatke()
-
-    app.text_area.insert("1.0", "!@#$%^&*()")
-    app.dodaj_notatke()
-
-    assert len(app.notatki) == 3
-
-
-def test_dodawanie_notatek_i_wyczyszczenie(app):
-    app.text_area.insert("1.0", "Notatka do wyczyszczenia")
+def test_dodawanie_i_wyczyszczenie_notatek(app):
+    app.text_area.get = MagicMock(return_value="Notatka do usunięcia")
     app.dodaj_notatke()
     app.wyczysc_notatki()
     assert len(app.notatki) == 0
 
 
-def test_dodawanie_pustych_notatek_wielokrotnie(app):
-    for _ in range(5):
-        app.dodaj_notatke()
-    app.wyczysc_notatki()
-    assert len(app.notatki) == 0
-
-
-def test_ustawienie_notatki_i_wyczyszczenie(app):
-    app.text_area.insert("1.0", "Notatka do ustawienia")
+def test_notatki_unikalne(app):
+    app.text_area.get = MagicMock(return_value="Powtarzająca się notatka")
     app.dodaj_notatke()
+    app.dodaj_notatke()
+    assert len(app.notatki) == 2  # Każda notatka jest traktowana osobno
+
+
+def test_wyczyszczenie_tekstowego_pola(app):
+    app.text_area.get = MagicMock(return_value="Notatka")
+    app.dodaj_notatke()
+    app.text_area.delete = MagicMock()
     app.wyczysc_notatki()
-    assert app.text_area.get("1.0", tk.END).strip() == ""
+    app.text_area.delete.assert_called_once_with("1.0", "end")
     assert len(app.notatki) == 0

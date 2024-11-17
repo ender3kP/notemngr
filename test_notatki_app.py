@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from notatki_app import NotatkiApp
 
 
@@ -68,9 +68,24 @@ def test_notatki_unikalne(app):
 
 
 def test_wyczyszczenie_tekstowego_pola(app):
+    # Przygotowanie: wstawienie notatki i zamockowanie metod
     app.text_area.get = MagicMock(return_value="Notatka")
-    app.dodaj_notatke()
     app.text_area.delete = MagicMock()
+    app.dodaj_notatke()
+
+    # Wywołanie metody do przetestowania
     app.wyczysc_notatki()
-    app.text_area.delete.assert_called_once_with("1.0", "end")
-    assert len(app.notatki) == 0
+
+    # Assercje
+    app.text_area.delete.assert_called_once_with("1.0", "end")  # Sprawdzenie wyczyszczenia pola tekstowego
+    assert app.notatki == []  # Upewnienie się, że lista notatek została wyczyszczona
+
+
+def test_dodaj_pusta_notatke_wyswietla_komunikat(app):
+    # Mockowanie metody showwarning
+    with patch("tkinter.messagebox.showwarning") as mock_showwarning:
+        app.text_area.get = MagicMock(return_value="")  # Pusta notatka
+        app.dodaj_notatke()  # Wywołanie metody dodawania notatki
+        
+        # Sprawdzenie, czy komunikat o błędzie został wyświetlony
+        mock_showwarning.assert_called_once_with("Błąd", "Nie można dodać pustej notatki!")
